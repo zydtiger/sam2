@@ -72,6 +72,14 @@ class MaskDecoder(nn.Module):
                 transformer_dim // 4, transformer_dim // 8, kernel_size=2, stride=2
             ),
             activation(),
+            nn.ConvTranspose2d(
+                transformer_dim // 8, transformer_dim // 8, kernel_size=2, stride=2
+            ),
+            activation(),
+            nn.ConvTranspose2d(
+                transformer_dim // 8, transformer_dim // 8, kernel_size=2, stride=2
+            ),
+            activation(),
         )
         self.use_high_res_features = use_high_res_features
         if use_high_res_features:
@@ -219,10 +227,12 @@ class MaskDecoder(nn.Module):
         if not self.use_high_res_features:
             upscaled_embedding = self.output_upscaling(src)
         else:
-            dc1, ln1, act1, dc2, act2 = self.output_upscaling
+            dc1, ln1, act1, dc2, act2, dc3, act3, dc4, act4 = self.output_upscaling
             feat_s0, feat_s1 = high_res_features
             upscaled_embedding = act1(ln1(dc1(src) + feat_s1))
             upscaled_embedding = act2(dc2(upscaled_embedding) + feat_s0)
+            upscaled_embedding = act3(dc3(upscaled_embedding))
+            upscaled_embedding = act4(dc4(upscaled_embedding))
 
         hyper_in_list: List[torch.Tensor] = []
         for i in range(self.num_mask_tokens):
