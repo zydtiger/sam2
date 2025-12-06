@@ -164,11 +164,28 @@ def build_sam2_video_predictor_hf(model_id, **kwargs):
 def _load_checkpoint(model, ckpt_path):
     if ckpt_path is not None:
         sd = torch.load(ckpt_path, map_location="cpu", weights_only=True)["model"]
-        missing_keys, unexpected_keys = model.load_state_dict(sd)
-        if missing_keys:
-            logging.error(missing_keys)
-            raise RuntimeError()
+        missing_keys, unexpected_keys = model.load_state_dict(sd, strict=False)
+        
+        # Allow missing keys for the extended output_upscaling layers in custom mask decoder
+        allowed_missing_prefixes = [
+            "sam_mask_decoder.output_upscaling.5.",
+            "sam_mask_decoder.output_upscaling.7."
+        ]
+        
+        real_missing_keys = []
+        for k in missing_keys:
+            is_allowed = False
+            for prefix in allowed_missing_prefixes:
+                if k.startswith(prefix):
+                    is_allowed = True
+                    break
+            if not is_allowed:
+                real_missing_keys.append(k)
+
+        if real_missing_keys:
+            logging.error(real_missing_keys)
+            raise RuntimeError(f"Missing keys: {real_missing_keys}")
         if unexpected_keys:
             logging.error(unexpected_keys)
-            raise RuntimeError()
+            raise RuntimeError(f"Unexpected keys: {unexpected_keys}")
         logging.info("Loaded checkpoint sucessfully")
